@@ -1,5 +1,8 @@
 // server.js
 require("dotenv").config();
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -8,6 +11,7 @@ const jwt = require("jsonwebtoken");
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+
 const app = express();
 app.use(express.json());
 app.use(cors());
@@ -37,7 +41,7 @@ const userSchema = new mongoose.Schema({
   },
   storeName: { type: String, default: "" },
   storeDescription: { type: String, default: "" },
-  isApproved: { type: Boolean, default: true }, // CHANGED: Auto-approve all users
+  isApproved: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -184,7 +188,7 @@ app.post('/api/register', async (req, res) => {
       email, 
       password: hashedPassword, 
       role: role || 'buyer',
-      isApproved: true  // CHANGED: Auto-approve all users
+      isApproved: true
     });
     await user.save();
     
@@ -606,7 +610,7 @@ app.get('/api/seller/products', authenticateToken, isSeller, async (req, res) =>
   }
 });
 
-// Add product - SELLER endpoint (FIXED)
+// Add product - SELLER endpoint
 app.post('/api/seller/products', authenticateToken, isSeller, async (req, res) => {
   try {
     console.log('📦 Seller adding product:', req.body);
@@ -667,37 +671,7 @@ app.put('/api/seller/orders/:id/status', authenticateToken, isSeller, async (req
   }
 });
 
-// ============= CREATE ADMIN USER =============
-
-async function createAdminIfNotExists() {
-  try {
-    const adminExists = await User.findOne({ role: 'admin' });
-    if (!adminExists) {
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      const admin = new User({ 
-        username: 'admin', 
-        email: 'admin@ecommerce.com',
-        password: hashedPassword, 
-        role: 'admin',
-        isApproved: true
-      });
-      await admin.save();
-      console.log('✅ Admin user created - Email: admin@ecommerce.com, Password: admin123');
-    }
-  } catch (error) {
-    console.error('Error creating admin:', error.message);
-  }
-}
-
-// ============= START SERVER =============
-
-createAdminIfNotExists();
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 API: http://localhost:${PORT}/api`);
-});
+// ============= IMAGE UPLOAD SETUP =============
 
 const uploadDir = './uploads';
 if (!fs.existsSync(uploadDir)){
@@ -729,7 +703,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: fileFilter
 });
 
@@ -750,4 +724,36 @@ app.post('/api/upload', authenticateToken, upload.array('images', 5), async (req
     console.error('Upload error:', error);
     res.status(400).json({ error: error.message });
   }
+});
+
+// ============= CREATE ADMIN USER =============
+
+async function createAdminIfNotExists() {
+  try {
+    const adminExists = await User.findOne({ role: 'admin' });
+    if (!adminExists) {
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      const admin = new User({ 
+        username: 'admin', 
+        email: 'admin@ecommerce.com',
+        password: hashedPassword, 
+        role: 'admin',
+        isApproved: true
+      });
+      await admin.save();
+      console.log('✅ Admin user created - Email: admin@ecommerce.com, Password: admin123');
+    }
+  } catch (error) {
+    console.error('Error creating admin:', error.message);
+  }
+}
+
+// ============= START SERVER =============
+
+createAdminIfNotExists();
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📡 API: http://localhost:${PORT}/api`);
 });
