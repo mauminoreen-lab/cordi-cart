@@ -1,1 +1,32 @@
-<p>header works!</p>
+<header class="header">
+  <div class="container">
+    <!-- Logo -->
+    <a routerLink="/products" class="logo">
+      <img [src]="logoBase64" alt="CordiCart Logo" class="logo-img">
+      <span class="logo-text">CordiCart</span>
+    </a>
+    
+    <!-- Search Bar -->
+    <div class="search-bar">
+      <input #searchInput type="text" placeholder="Search products..." (keyup.enter)="search(searchInput.value)">
+      <button (click)="search(searchInput.value)">🔍</button>
+    </div>
+    
+    <!-- Navigation Links -->
+    <div class="nav-links">
+      <a routerLink="/cart" class="cart-link">🛒 Cart ({{ cartCount() }})</a>
+      
+      @if (!isLoggedIn()) {
+        <div class="auth-buttons">
+          <a routerLink="/login" class="btn-login">Login</a>
+          <a routerLink="/register" class="btn-register">Register</a>
+        </div>
+      } @else {
+        <div class="user-menu">
+          <span class="username">Hi, {{ username() }}</span>
+          <button (click)="logout()" class="btn-logout">Logout</button>
+        </div>
+      }
+    </div>
+  </div>
+</header>

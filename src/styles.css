@@ -1,15 +1,27 @@
-/* src/styles.css - Global theme colors */
+/* src/styles.css - Soft Green Theme */
+
 :root {
-  --primary-green: #2e7d32;
-  --primary-dark: #1b5e20;
-  --primary-light: #4caf50;
-  --primary-hover: #1b5e20;
-  --success: #4caf50;
-  --warning: #ff9800;
-  --danger: #f44336;
-  --text-light: #ffffff;
-  --text-dark: #333333;
-  --background-light: #f5f5f5;
+  /* Soft Green Colors */
+  --primary-green: #43a047;
+  --primary-green-dark: #2e7d32;
+  --primary-green-light: #66bb6a;
+  --primary-green-darker: #1b5e20;
+  --primary-green-soft: #81c784;
+  --primary-green-pale: #c8e6c9;
+  --primary-green-bg: #e8f5e9;
+  
+  /* Accent Colors */
+  --accent-orange: #ff9800;
+  --accent-red: #ef5350;
+  --accent-blue: #42a5f5;
+  
+  /* Neutral Colors */
+  --white: #ffffff;
+  --gray-light: #f8f9fa;
+  --gray: #e9ecef;
+  --gray-medium: #ced4da;
+  --gray-dark: #6c757d;
+  --black: #343a40;
 }
 
 * {
@@ -20,5 +32,421 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: var(--background-light);
+  background: var(--gray-light);
+  color: var(--black);
+}
+
+/* ============ BUTTONS ============ */
+.btn-primary,
+.btn-submit,
+.btn-login,
+.btn-register,
+.submit-btn,
+.add-btn,
+.add-to-cart,
+.catch-btn,
+.confirm-btn,
+button[type="submit"],
+.login-btn,
+.register-btn {
+  background: linear-gradient(135deg, var(--primary-green), var(--primary-green-dark)) !important;
+  color: var(--white) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 24px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  font-size: 14px !important;
+}
+
+.btn-primary:hover,
+.btn-submit:hover,
+.submit-btn:hover,
+.add-btn:hover,
+.add-to-cart:hover,
+.catch-btn:hover,
+.confirm-btn:hover,
+button[type="submit"]:hover,
+.login-btn:hover,
+.register-btn:hover {
+  background: linear-gradient(135deg, var(--primary-green-dark), var(--primary-green-darker)) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(67, 160, 71, 0.3) !important;
+}
+
+.btn-primary:disabled,
+.btn-submit:disabled,
+button:disabled {
+  background: var(--gray-medium) !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Danger Buttons (stay red) */
+.btn-danger,
+.delete-btn,
+.remove-btn {
+  background: var(--accent-red) !important;
+  color: var(--white) !important;
+}
+
+.btn-danger:hover,
+.delete-btn:hover,
+.remove-btn:hover {
+  background: #e53935 !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Edit Buttons (stay blue) */
+.btn-edit,
+.edit-btn {
+  background: var(--accent-blue) !important;
+  color: var(--white) !important;
+}
+
+.btn-edit:hover,
+.edit-btn:hover {
+  background: #1e88e5 !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Outline Buttons */
+.btn-outline {
+  background: transparent !important;
+  border: 2px solid var(--primary-green) !important;
+  color: var(--primary-green) !important;
+}
+
+.btn-outline:hover {
+  background: var(--primary-green) !important;
+  color: var(--white) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* ============ HEADER ============ */
+.header {
+  background: linear-gradient(135deg, var(--primary-green), var(--primary-green-dark));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.header .cart-link {
+  color: var(--white);
+}
+
+.header .cart-link:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+}
+
+/* Login & Register Buttons in Header */
+.btn-login {
+  background: transparent !important;
+  border: 2px solid var(--white) !important;
+  color: var(--white) !important;
+}
+
+.btn-login:hover {
+  background: var(--white) !important;
+  color: var(--primary-green) !important;
+  border: 2px solid var(--white) !important;
+}
+
+.btn-register {
+  background: var(--white) !important;
+  color: var(--primary-green) !important;
+  border: 2px solid var(--white) !important;
+}
+
+.btn-register:hover {
+  background: transparent !important;
+  color: var(--white) !important;
+}
+
+/* ============ LOGIN & REGISTER CARDS ============ */
+.login-card,
+.register-card {
+  border: 4px solid var(--primary-green);
+  border-radius: 20px;
+}
+
+.login-card h2,
+.register-card h2 {
+  color: var(--primary-green);
+}
+
+.form-control:focus {
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(67, 160, 71, 0.1);
+}
+
+/* ============ PRODUCT CARDS ============ */
+.product-card {
+  background: var(--white);
+  border-radius: 12px;
+  transition: transform 0.3s, box-shadow 0.3s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 20px rgba(67, 160, 71, 0.15);
+}
+
+.price {
+  color: var(--primary-green) !important;
+  font-weight: bold;
+  font-size: 20px;
+}
+
+/* ============ LINKS ============ */
+a {
+  color: var(--primary-green);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+a:hover {
+  color: var(--primary-green-dark);
+  text-decoration: underline;
+}
+
+/* ============ TABLES & LISTS ============ */
+.table-striped tr:nth-child(even) {
+  background-color: var(--primary-green-pale);
+}
+
+.status-badge {
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.status-success {
+  background: var(--primary-green-pale);
+  color: var(--primary-green);
+}
+
+.status-pending {
+  background: #fff3e0;
+  color: #ff9800;
+}
+
+.status-cancelled {
+  background: #ffebee;
+  color: #ef5350;
+}
+
+/* ============ ALERTS & MESSAGES ============ */
+.alert-success {
+  background: var(--primary-green-pale);
+  color: var(--primary-green-dark);
+  border: 1px solid var(--primary-green-soft);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.alert-error {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+/* ============ LOADING SPINNER ============ */
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--primary-green-pale);
+  border-top-color: var(--primary-green);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============ PROGRESS BARS ============ */
+.progress-bar {
+  background: linear-gradient(90deg, var(--primary-green-light), var(--primary-green));
+  border-radius: 10px;
+  height: 8px;
+}
+
+/* ============ CHECKBOXES & RADIO BUTTONS ============ */
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+  accent-color: var(--primary-green);
+}
+
+/* ============ PAGINATION ============ */
+.pagination {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.pagination .active {
+  background: var(--primary-green);
+  color: var(--white);
+  border-color: var(--primary-green);
+}
+
+.pagination button {
+  padding: 8px 14px;
+  border: 1px solid var(--gray-medium);
+  background: var(--white);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: var(--primary-green-pale);
+  border-color: var(--primary-green);
+  color: var(--primary-green);
+}
+
+/* ============ FOOTER ============ */
+.footer {
+  background: var(--primary-green-dark);
+  color: var(--white);
+  padding: 30px 20px;
+  margin-top: 40px;
+}
+
+.footer a {
+  color: var(--primary-green-soft);
+}
+
+.footer a:hover {
+  color: var(--white);
+}
+
+/* ============ BADGES ============ */
+.badge-primary {
+  background: var(--primary-green);
+  color: var(--white);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-success {
+  background: var(--primary-green-pale);
+  color: var(--primary-green-dark);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* ============ DASHBOARD CARDS ============ */
+.stat-card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid var(--primary-green);
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.stat-card .stat-icon {
+  color: var(--primary-green);
+  font-size: 32px;
+}
+
+/* ============ ORDER STATUS ============ */
+.order-status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.order-status.pending {
+  background: #fff3e0;
+  color: #ff9800;
+}
+
+.order-status.processing {
+  background: #e3f2fd;
+  color: #2196f3;
+}
+
+.order-status.shipped {
+  background: var(--primary-green-pale);
+  color: var(--primary-green);
+}
+
+.order-status.delivered {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.order-status.cancelled {
+  background: #ffebee;
+  color: #ef5350;
+}
+
+/* ============ SEARCH BAR ============ */
+.search-bar input:focus {
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 2px rgba(67, 160, 71, 0.2);
+}
+
+/* ============ MODAL ============ */
+.modal-header {
+  border-bottom: 2px solid var(--primary-green);
+}
+
+.modal-footer .btn-primary {
+  background: var(--primary-green);
+}
+
+/* ============ TOOLTIPS ============ */
+.tooltip {
+  background: var(--primary-green-dark);
+  color: var(--white);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* ============ SELECT DROPDOWN ============ */
+select:focus {
+  border-color: var(--primary-green);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(67, 160, 71, 0.2);
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 768px) {
+  .btn-primary,
+  .btn-submit,
+  .submit-btn,
+  .add-btn {
+    padding: 8px 16px !important;
+    font-size: 12px !important;
+  }
+  
+  .stat-card {
+    padding: 15px;
+  }
+  
+  .stat-card .stat-icon {
+    font-size: 24px;
+  }
 }

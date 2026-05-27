@@ -1,1 +1,51 @@
-<p>login works!</p>
+<div class="login-container">
+  <div class="login-card">
+    <h2>Welcome Back!</h2>
+    <p class="subtitle">Login to your CordiCart account</p>
+    
+    <form (ngSubmit)="login()" #loginForm="ngForm">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input 
+          type="email" 
+          [(ngModel)]="email" 
+          name="email" 
+          required 
+          class="form-control" 
+          placeholder="Enter your email">
+      </div>
+      
+      <div class="form-group">
+        <label>Password</label>
+        <input 
+          type="password" 
+          [(ngModel)]="password" 
+          name="password" 
+          required 
+          class="form-control" 
+          placeholder="Enter your password">
+      </div>
+      
+      @if (error) {
+        <div class="error">{{ error }}</div>
+      }
+      
+      <button type="submit" class="login-btn" [disabled]="loginForm.invalid">
+        Login
+      </button>
+    </form>
+    
+    <p class="register-link">
+      Don't have an account? <a routerLink="/register">Register now</a>
+    </p>
+    
+    <div class="demo-accounts">
+      <p>Demo Accounts:</p>
+      <div class="demo-buttons">
+        <button (click)="demoLogin('admin@ecommerce.com', 'admin123')" class="demo-btn admin">Admin Login</button>
+        <button (click)="demoLogin('seller@test.com', 'seller123')" class="demo-btn seller">Seller Login</button>
+        <button (click)="demoLogin('buyer@test.com', 'buyer123')" class="demo-btn buyer">Buyer Login</button>
+      </div>
+    </div>
+  </div>
+</div>

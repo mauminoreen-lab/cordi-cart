@@ -1,0 +1,31 @@
+/* Add to existing styles - change orange to green */
+.add-btn {
+  background: #2e7d32;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+  width: 100%;
+}
+
+.add-btn:hover {
+  background: #1b5e20;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 10px rgba(46, 125, 50, 0.3);
+}
+
+.add-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.price {
+  color: #2e7d32;
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}

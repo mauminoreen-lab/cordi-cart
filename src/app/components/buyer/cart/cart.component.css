@@ -1,0 +1,37 @@
+/* Checkout button */
+.checkout-btn {
+  width: 100%;
+  padding: 15px;
+  background: #2e7d32;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-top: 20px;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+
+.checkout-btn:hover {
+  background: #1b5e20;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 10px rgba(46, 125, 50, 0.3);
+}
+
+/* Quantity buttons */
+.item-quantity button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.item-quantity button:hover {
+  background: #2e7d32;
+  color: white;
+  border-color: #2e7d32;
+}

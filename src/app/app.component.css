@@ -1,0 +1,85 @@
+/* Global Button Styles - Override any orange buttons */
+.btn-primary,
+.btn-submit,
+button[type="submit"],
+.add-to-cart,
+.add-btn,
+.catch-btn,
+.submit-btn,
+.confirm-btn {
+  background: #2e7d32 !important;
+  color: white !important;
+  border: none !important;
+  transition: all 0.3s !important;
+}
+
+.btn-primary:hover,
+.btn-submit:hover,
+button[type="submit"]:hover,
+.add-to-cart:hover,
+.add-btn:hover,
+.catch-btn:hover,
+.submit-btn:hover,
+.confirm-btn:hover {
+  background: #1b5e20 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 3px 10px rgba(46, 125, 50, 0.3) !important;
+}
+
+/* Danger/Delete buttons stay red */
+.btn-delete,
+.delete-btn,
+.remove-btn {
+  background: #f44336 !important;
+  color: white !important;
+}
+
+.btn-delete:hover,
+.delete-btn:hover,
+.remove-btn:hover {
+  background: #d32f2f !important;
+}
+
+/* Edit buttons stay blue */
+.btn-edit,
+.edit-btn {
+  background: #2196F3 !important;
+  color: white !important;
+}
+
+.btn-edit:hover,
+.edit-btn:hover {
+  background: #1976D2 !important;
+}
+
+
+/* Force all orange buttons to green */
+.add-to-cart,
+.add-btn,
+.btn-submit,
+.submit-btn,
+.catch-btn,
+.confirm-btn,
+[class*="add"],
+[class*="submit"],
+[class*="catch"] {
+  background: linear-gradient(135deg, #2e7d32, #1b5e20) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.add-to-cart:hover,
+.add-btn:hover,
+.btn-submit:hover,
+.submit-btn:hover,
+.catch-btn:hover,
+.confirm-btn:hover {
+  background: linear-gradient(135deg, #1b5e20, #0d3b11) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Price color to green */
+.price,
+.product-price {
+  color: #2e7d32 !important;
+}
