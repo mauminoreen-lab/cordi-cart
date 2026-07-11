@@ -4,10 +4,28 @@ import { sellerGuard } from './guards/seller.guard';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/products', pathMatch: 'full' },
-  { path: 'products', loadComponent: () => import('./components/buyer/product-list/product-list.component').then(m => m.ProductListComponent) },
-  { path: 'cart', loadComponent: () => import('./components/buyer/cart/cart.component').then(m => m.CartComponent), canActivate: [authGuard] },
-  { path: 'login', loadComponent: () => import('./components/auth/login/login.component').then(m => m.LoginComponent) },
-  { path: 'register', loadComponent: () => import('./components/auth/register/register.component').then(m => m.RegisterComponent) },
+  { 
+    path: 'products', 
+    loadComponent: () => import('./components/buyer/product-list/product-list.component').then(m => m.ProductListComponent) 
+  },
+  { 
+    path: 'cart', 
+    loadComponent: () => import('./components/buyer/cart/cart.component').then(m => m.CartComponent), 
+    canActivate: [authGuard] 
+  },
+  { 
+    path: 'checkout', 
+    loadComponent: () => import('./components/buyer/checkout/checkout.component').then(m => m.CheckoutComponent),
+    canActivate: [authGuard] 
+  },
+  { 
+    path: 'login', 
+    loadComponent: () => import('./components/auth/login/login.component').then(m => m.LoginComponent) 
+  },
+  { 
+    path: 'register', 
+    loadComponent: () => import('./components/auth/register/register.component').then(m => m.RegisterComponent) 
+  },
   { 
     path: 'seller', 
     canActivate: [sellerGuard],

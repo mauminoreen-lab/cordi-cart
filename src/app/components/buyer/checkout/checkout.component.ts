@@ -1,6 +1,6 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgForm } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { EcommerceService } from '../../../services/ecommerce.service';
 
@@ -10,6 +10,15 @@ import { EcommerceService } from '../../../services/ecommerce.service';
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="container">
+      <!-- Debug info -->
+      <div style="background: #f0f0f0; padding: 10px; margin-bottom: 20px; border-radius: 8px; font-size: 12px;">
+        <strong>🔍 Debug:</strong>
+        isSeller: {{ isSeller }},
+        loggedIn: {{ ecommerceService.isLoggedIn() }},
+        cartItems: {{ cartItems.length }},
+        paymentMethod: {{ paymentMethod }}
+      </div>
+      
       @if (isSeller) {
         <div class="seller-warning">
           <h2>⚠️ Sellers Cannot Checkout</h2>
@@ -123,8 +132,10 @@ import { EcommerceService } from '../../../services/ecommerce.service';
   `]
 })
 export class CheckoutComponent implements OnInit {
-  private ecommerceService = inject(EcommerceService);
+  public ecommerceService = inject(EcommerceService);
   private router = inject(Router);
+  
+  @ViewChild('checkoutForm') checkoutForm!: NgForm;
   
   cartItems: any[] = [];
   subtotal = 0;
@@ -144,6 +155,10 @@ export class CheckoutComponent implements OnInit {
   }
   
   ngOnInit() {
+    console.log('🔴 CheckoutComponent initialized');
+    console.log('🔴 isSeller:', this.isSeller);
+    console.log('🔴 isLoggedIn:', this.ecommerceService.isLoggedIn());
+    
     if (!this.isSeller) {
       this.loadCart();
     }
@@ -151,21 +166,66 @@ export class CheckoutComponent implements OnInit {
   
   loadCart() {
     const cart = this.ecommerceService.cart();
+    console.log('🔴 Cart loaded:', cart);
     if (cart) {
       this.cartItems = cart.items;
       this.subtotal = cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      console.log('🔴 Cart items:', this.cartItems);
+      console.log('🔴 Subtotal:', this.subtotal);
     }
   }
   
   placeOrder() {
+    console.log('🛒🔴🔴🔴 PLACE ORDER BUTTON CLICKED! 🔴🔴🔴');
+    console.log('🛒🔴 This message should appear in browser console!');
+    
+    // Check form validity
+    console.log('📋 Form valid?', this.checkoutForm?.valid);
+    console.log('📋 Payment method selected?', this.paymentMethod);
+    console.log('📋 Cart items:', this.cartItems);
+    console.log('📋 Shipping address:', this.shippingAddress);
+    
+    // Check if user is logged in
+    if (!this.ecommerceService.isLoggedIn()) {
+      console.log('❌ User is not logged in!');
+      alert('Please login first!');
+      this.router.navigate(['/login']);
+      return;
+    }
+    
+    // Check if cart is empty
+    if (this.cartItems.length === 0) {
+      console.log('❌ Cart is empty!');
+      alert('Your cart is empty!');
+      return;
+    }
+    
+    // Check if shipping address is complete
+    if (!this.shippingAddress.fullName || !this.shippingAddress.street || !this.shippingAddress.city) {
+      console.log('❌ Shipping address incomplete!');
+      alert('Please fill in all shipping address fields.');
+      return;
+    }
+    
+    // Check if payment method is selected
+    if (!this.paymentMethod) {
+      console.log('❌ No payment method selected!');
+      alert('Please select a payment method.');
+      return;
+    }
+    
+    console.log('📤 Sending order to server...');
+    
     this.ecommerceService.createOrder(this.shippingAddress, this.paymentMethod).subscribe({
       next: (order) => {
+        console.log('✅ Order placed successfully:', order);
         alert('Order placed successfully!');
         this.router.navigate(['/orders']);
       },
       error: (err) => {
-        console.error('Error placing order:', err);
-        alert('Failed to place order. Please try again.');
+        console.error('❌ Error placing order:', err);
+        console.error('❌ Error details:', err.error);
+        alert('Failed to place order: ' + (err.error?.error || err.message || 'Please try again.'));
       }
     });
   }

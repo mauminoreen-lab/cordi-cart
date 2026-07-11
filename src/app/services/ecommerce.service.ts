@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { environment } from '../../environments/environment';
 
-// ============= INTERFACES (All exported) =============
+// ============= INTERFACES =============
 export interface User {
   _id: string;
   username: string;
@@ -33,6 +33,7 @@ export interface Product {
   images: string[];
   seller: User | string;
   sellerName: string;
+  origin?: string;  // Added for Benguet products
   rating: number;
   numReviews: number;
   isActive: boolean;
@@ -222,9 +223,24 @@ export class EcommerceService {
   }
   
   // ============= ORDERS (Buyer) =============
-  createOrder(shippingAddress: ShippingAddress, paymentMethod: string) {
-    return this.http.post<Order>(`${this.apiUrl}/orders`, { shippingAddress, paymentMethod }, { headers: this.getAuthHeaders() });
-  }
+// In ecommerce.service.ts
+createOrder(shippingAddress: ShippingAddress, paymentMethod: string) {
+  console.log('🛒🔴 SERVICE createOrder CALLED!');
+  console.log('🛒🔴 This should appear in browser console!');
+  console.log('📦 API URL:', `${this.apiUrl}/orders`);
+  console.log('📦 Shipping:', shippingAddress);
+  console.log('📦 Payment:', paymentMethod);
+  console.log('📦 Creating order...');
+  console.log('📦 API URL:', `${this.apiUrl}/orders`);
+  console.log('📦 Shipping:', shippingAddress);
+  console.log('📦 Payment:', paymentMethod);
+  console.log('📦 Headers:', this.getAuthHeaders());
+  
+  return this.http.post<Order>(`${this.apiUrl}/orders`, 
+    { shippingAddress, paymentMethod }, 
+    { headers: this.getAuthHeaders() }
+  );
+}
   
   getOrders() {
     return this.http.get<Order[]>(`${this.apiUrl}/orders`, { headers: this.getAuthHeaders() });
@@ -238,33 +254,47 @@ export class EcommerceService {
     return this.http.get<any[]>(`${this.apiUrl}/orders/${orderId}/tracking`, { headers: this.getAuthHeaders() });
   }
   
-  // ============= SELLER METHODS =============
+  // ============= SELLER METHODS (FIXED) =============
   getSellerStats() {
     return this.http.get<any>(`${this.apiUrl}/seller/stats`, { headers: this.getAuthHeaders() });
   }
   
   getSellerProducts() {
+    console.log('📦 Fetching seller products...');
     return this.http.get<Product[]>(`${this.apiUrl}/seller/products`, { headers: this.getAuthHeaders() });
   }
   
   addProduct(product: Partial<Product>) {
+    console.log('➕ Adding product:', product);
     return this.http.post<Product>(`${this.apiUrl}/seller/products`, product, { headers: this.getAuthHeaders() });
   }
   
+  // FIXED: Changed from /seller/products/:id to /products/:id
   updateProduct(id: string, product: Partial<Product>) {
-    return this.http.put<Product>(`${this.apiUrl}/seller/products/${id}`, product, { headers: this.getAuthHeaders() });
+    console.log(`✏️ Updating product ${id}:`, product);
+    return this.http.put<Product>(`${this.apiUrl}/products/${id}`, product, { headers: this.getAuthHeaders() });
   }
   
+  // FIXED: Changed from /seller/products/:id to /products/:id
   deleteProduct(id: string) {
-    return this.http.delete(`${this.apiUrl}/seller/products/${id}`, { headers: this.getAuthHeaders() });
+    console.log(`🗑️ Deleting product ${id}`);
+    return this.http.delete(`${this.apiUrl}/products/${id}`, { headers: this.getAuthHeaders() });
   }
   
+  // FIXED: Added proper logging for seller orders
   getSellerOrders() {
+    console.log('📦 Fetching seller orders...');
     return this.http.get<Order[]>(`${this.apiUrl}/seller/orders`, { headers: this.getAuthHeaders() });
   }
   
+  // FIXED: This method already exists but we're ensuring it's correct
   updateOrderStatus(orderId: string, orderStatus: string) {
-    return this.http.put<Order>(`${this.apiUrl}/seller/orders/${orderId}/status`, { orderStatus }, { headers: this.getAuthHeaders() });
+    console.log(`📦 Updating order ${orderId} to status: ${orderStatus}`);
+    return this.http.put<any>(
+      `${this.apiUrl}/seller/orders/${orderId}/status`, 
+      { orderStatus }, 
+      { headers: this.getAuthHeaders() }
+    );
   }
   
   // ============= ADMIN METHODS =============

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EcommerceService, Product, Order } from '../../../services/ecommerce.service';
@@ -12,6 +12,7 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
       <div class="dashboard-header">
         <h1>🏪 Seller Dashboard</h1>
         <p>Welcome, {{ ecommerceService.currentUser()?.username }}!</p>
+        <p style="font-size: 14px; opacity: 0.8;">Seller ID: {{ ecommerceService.currentUser()?._id }}</p>
       </div>
       
       <!-- Stats Cards -->
@@ -46,16 +47,27 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
         </div>
       </div>
       
-      <!-- Tabs -->
+      <!-- Tabs with Refresh Buttons -->
       <div class="tabs">
-        <button [class.active]="activeTab === 'products'" (click)="activeTab = 'products'">My Products</button>
-        <button [class.active]="activeTab === 'orders'" (click)="activeTab = 'orders'">Orders</button>
-        <button [class.active]="activeTab === 'add'" (click)="activeTab = 'add'">Add Product</button>
+        <button [class.active]="activeTab === 'products'" (click)="setActiveTab('products')">My Products</button>
+        <button [class.active]="activeTab === 'orders'" (click)="setActiveTab('orders')">
+          Orders
+          @if (newOrderCount > 0) {
+            <span class="badge">{{ newOrderCount }}</span>
+          }
+        </button>
+        <button [class.active]="activeTab === 'add'" (click)="setActiveTab('add')">Add Product</button>
       </div>
       
       <!-- Products Tab -->
       @if (activeTab === 'products') {
         <div class="products-section">
+          <div class="section-header">
+            <h3>My Products ({{ products.length }})</h3>
+            <button (click)="loadProducts()" class="refresh-btn" [disabled]="loadingProducts">
+              {{ loadingProducts ? 'Loading...' : '🔄 Refresh' }}
+            </button>
+          </div>
           <div class="products-grid">
             @for (product of products; track product._id) {
               <div class="product-card">
@@ -71,6 +83,7 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
                   <p class="price">₱{{ product.price.toLocaleString() }}</p>
                   <p class="stock">Stock: {{ product.stock }}</p>
                   <p class="category">{{ product.category }}</p>
+                  <p class="origin" style="font-size: 12px; color: #999;">📍 {{ product.origin || 'Benguet' }}</p>
                 </div>
                 <div class="product-actions">
                   <button (click)="editProduct(product)" class="edit-btn">✏️ Edit</button>
@@ -78,33 +91,71 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
                 </div>
               </div>
             }
-            @if (products.length === 0) {
+            @if (products.length === 0 && !loadingProducts) {
               <div class="no-products">No products yet. Add your first product!</div>
+            }
+            @if (loadingProducts) {
+              <div class="loading">Loading products...</div>
             }
           </div>
         </div>
       }
       
-      <!-- Orders Tab -->
+      <!-- Orders Tab with Refresh -->
       @if (activeTab === 'orders') {
         <div class="orders-section">
+          <div class="section-header">
+            <h3>Orders ({{ orders.length }})</h3>
+            <button (click)="loadOrders()" class="refresh-btn" [disabled]="loadingOrders">
+              {{ loadingOrders ? 'Loading...' : '🔄 Refresh' }}
+            </button>
+          </div>
+          
+          @if (loadingOrders) {
+            <div class="loading">Loading orders...</div>
+          }
+          
+          @if (!loadingOrders && orders.length === 0) {
+            <div class="no-orders">No orders yet.</div>
+          }
+          
+          <!-- DEBUG: Show raw data -->
+          @if (!loadingOrders && orders.length > 0) {
+            <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff9800;">
+              <h4 style="margin: 0 0 10px 0;">🔍 Debug Info - {{ orders.length }} Order(s) Found</h4>
+              <div style="font-size: 12px; max-height: 300px; overflow: auto; background: #fff; padding: 10px; border-radius: 4px;">
+                <pre>{{ orders | json }}</pre>
+              </div>
+            </div>
+          }
+          
           @for (order of orders; track order._id) {
             <div class="order-card">
               <div class="order-header">
-                <span class="order-number">Order #{{ order.orderNumber }}</span>
-                <span class="order-status" [class]="order.orderStatus">{{ order.orderStatus }}</span>
+                <span class="order-number">Order #{{ order.orderNumber || 'N/A' }}</span>
+                <span class="order-status" [class]="order.orderStatus || 'pending'">
+                  {{ order.orderStatus || 'Pending' }}
+                </span>
               </div>
-              <div class="order-items">
-                @for (item of order.items; track item.product) {
-                  <div class="order-item">
-                    <span>{{ item.name }}</span>
-                    <span>x{{ item.quantity }}</span>
-                    <span>₱{{ (item.price * item.quantity).toLocaleString() }}</span>
-                  </div>
-                }
-              </div>
+              
+              @if (order.items && order.items.length > 0) {
+                <div class="order-items">
+                  @for (item of order.items; track item.product) {
+                    <div class="order-item">
+                      <span>{{ item.name || 'Unknown Product' }}</span>
+                      <span>x{{ item.quantity || 0 }}</span>
+                      <span>₱{{ ((item.price || 0) * (item.quantity || 0)).toLocaleString() }}</span>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div style="padding: 15px; text-align: center; color: #999; background: #f5f5f5; border-radius: 8px; margin: 10px 0;">
+                  ⚠️ No items found in this order
+                </div>
+              }
+              
               <div class="order-footer">
-                <span class="order-total">Total: ₱{{ order.totalAmount.toLocaleString() }}</span>
+                <span class="order-total">Total: ₱{{ (order.totalAmount || 0).toLocaleString() }}</span>
                 <div class="order-actions">
                   <select [(ngModel)]="order.orderStatus" (change)="updateOrderStatus(order._id, order.orderStatus)">
                     <option value="pending">Pending</option>
@@ -117,13 +168,10 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
               </div>
             </div>
           }
-          @if (orders.length === 0) {
-            <div class="no-orders">No orders yet.</div>
-          }
         </div>
       }
       
-      <!-- Add Product Tab with Image Upload -->
+      <!-- Add Product Tab -->
       @if (activeTab === 'add') {
         <div class="add-product-section">
           <h2>Add New Product</h2>
@@ -132,20 +180,18 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
             <div class="form-row">
               <div class="form-group">
                 <label>Product Name *</label>
-                <input type="text" [(ngModel)]="newProduct.name" name="name" required class="form-control" placeholder="e.g., iPhone 15 Pro">
+                <input type="text" [(ngModel)]="newProduct.name" name="name" required class="form-control" placeholder="e.g., Fresh Strawberries">
               </div>
               <div class="form-group">
                 <label>Category *</label>
                 <select [(ngModel)]="newProduct.category" name="category" required class="form-control">
                   <option value="">Select Category</option>
-                  <option value="Electronics">Electronics</option>
-                  <option value="Clothing">Clothing</option>
-                  <option value="Books">Books</option>
-                  <option value="Home & Living">Home & Living</option>
-                  <option value="Toys">Toys</option>
-                  <option value="Sports">Sports</option>
-                  <option value="Beauty">Beauty</option>
-                  <option value="Food">Food</option>
+                  <option value="Fruits & Vegetables">Fruits & Vegetables</option>
+                  <option value="Coffee & Tea">Coffee & Tea</option>
+                  <option value="Woven Products">Woven Products</option>
+                  <option value="Wood Carvings">Wood Carvings</option>
+                  <option value="Snacks & Pasalubong">Snacks & Pasalubong</option>
+                  <option value="Handicrafts">Handicrafts</option>
                 </select>
               </div>
             </div>
@@ -166,6 +212,11 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
               </div>
             </div>
             
+            <div class="form-group">
+              <label>Origin</label>
+              <input type="text" [(ngModel)]="newProduct.origin" name="origin" class="form-control" placeholder="e.g., La Trinidad, Benguet" value="Benguet">
+            </div>
+            
             <!-- Image Upload Section -->
             <div class="form-group">
               <label>Product Images</label>
@@ -176,7 +227,6 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
                 </button>
                 <p class="upload-hint">Click to select or drag & drop images (Max 5 images, up to 5MB each)</p>
                 
-                <!-- Image Preview -->
                 @if (imagePreviews.length > 0) {
                   <div class="image-previews">
                     @for (preview of imagePreviews; track preview; let i = $index) {
@@ -188,7 +238,6 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
                   </div>
                 }
                 
-                <!-- Upload Progress -->
                 @if (uploading) {
                   <div class="upload-progress">
                     <div class="progress-bar" [style.width]="uploadProgress + '%'"></div>
@@ -240,10 +289,12 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
             <div class="form-group">
               <label>Category</label>
               <select [(ngModel)]="editingProduct.category" class="form-control">
-                <option value="Electronics">Electronics</option>
-                <option value="Clothing">Clothing</option>
-                <option value="Books">Books</option>
-                <option value="Home & Living">Home & Living</option>
+                <option value="Fruits & Vegetables">Fruits & Vegetables</option>
+                <option value="Coffee & Tea">Coffee & Tea</option>
+                <option value="Woven Products">Woven Products</option>
+                <option value="Wood Carvings">Wood Carvings</option>
+                <option value="Snacks & Pasalubong">Snacks & Pasalubong</option>
+                <option value="Handicrafts">Handicrafts</option>
               </select>
             </div>
             <div class="modal-actions">
@@ -265,9 +316,54 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
     .stat-info h3 { font-size: 28px; margin: 0; color: #333; }
     .stat-info p { margin: 5px 0 0; color: #666; }
     .stat-card.warning .stat-info h3 { color: #ff9800; }
+    
+    .badge {
+      background: #f44336;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 8px;
+      font-size: 12px;
+      margin-left: 5px;
+    }
+    
     .tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 1px solid #ddd; }
     .tabs button { padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 16px; transition: all 0.2s; }
     .tabs button.active { color: #ee4d2d; border-bottom: 2px solid #ee4d2d; }
+    
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .refresh-btn {
+      background: #2e7d32;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+    
+    .refresh-btn:hover:not(:disabled) {
+      background: #1b5e20;
+      transform: translateY(-2px);
+    }
+    
+    .refresh-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
     .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
     .product-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; }
     .product-card:hover { transform: translateY(-5px); }
@@ -283,7 +379,6 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
     .edit-btn { background: #2196F3; color: white; }
     .delete-btn { background: #f44336; color: white; }
     
-    /* Image Upload Styles */
     .image-upload-area { border: 2px dashed #ddd; border-radius: 12px; padding: 20px; text-align: center; background: #fafafa; transition: all 0.3s; }
     .image-upload-area.drag-over { border-color: #ee4d2d; background: #fff5f2; }
     .upload-btn { background: #ee4d2d; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-bottom: 10px; transition: all 0.3s; }
@@ -322,7 +417,7 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
     .order-status.delivered { background: #e8f5e9; color: #4caf50; }
     .order-status.cancelled { background: #ffebee; color: #f44336; }
     .order-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
-    .order-footer { margin-top: 15px; display: flex; justify-content: space-between; align-items: center; }
+    .order-footer { margin-top: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
     .order-total { font-weight: bold; font-size: 16px; }
     .order-actions select { padding: 6px 12px; border-radius: 6px; border: 1px solid #ddd; }
     
@@ -334,19 +429,28 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
     .cancel-btn { background: #f44336; color: white; }
     .no-products, .no-orders { text-align: center; padding: 60px; background: white; border-radius: 12px; color: #666; }
     
-    @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { 
+      .form-row { grid-template-columns: 1fr; }
+      .order-footer { flex-direction: column; align-items: stretch; }
+    }
   `]
 })
-export class SellerDashboardComponent implements OnInit {
+export class SellerDashboardComponent implements OnInit, OnDestroy {
   ecommerceService = inject(EcommerceService);
   
   activeTab = 'products';
   products: any[] = [];
   orders: any[] = [];
+  loadingProducts = false;
+  loadingOrders = false;
   stats = { totalProducts: 0, totalOrders: 0, totalSales: 0, lowStock: 0 };
   editingProduct: any = null;
   message = '';
   messageType = '';
+  
+  // Track previous order count for notifications
+  previousOrderCount = 0;
+  newOrderCount = 0;
   
   // Image upload properties
   selectedFiles: File[] = [];
@@ -360,31 +464,142 @@ export class SellerDashboardComponent implements OnInit {
     price: 0,
     stock: 0,
     category: '',
+    origin: 'Benguet',
     images: [] as string[]
   };
   
+  private refreshInterval: any;
+  
   ngOnInit() {
-    this.loadData();
+    // ✅ REMOVE the problematic checkSellerInfo() call - just use console directly
+    console.log('👤 Current Seller:', this.ecommerceService.currentUser());
+    
+    this.loadProducts();
+    this.loadOrders();
+    
+    // Set initial order count after first load
+    setTimeout(() => {
+      this.previousOrderCount = this.orders.length;
+      this.newOrderCount = 0;
+    }, 1000);
+    
+    // Auto-refresh orders every 10 seconds when on orders tab
+    this.refreshInterval = setInterval(() => {
+      if (this.activeTab === 'orders') {
+        console.log('🔄 Auto-refreshing orders...');
+        this.loadOrders();
+      }
+      if (this.activeTab === 'products') {
+        this.loadProducts();
+      }
+    }, 10000);
   }
   
-  loadData() {
+  ngOnDestroy() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
+  }
+  
+  setActiveTab(tab: string) {
+    this.activeTab = tab;
+    if (tab === 'orders') {
+      // Reset previous count when manually refreshing
+      this.previousOrderCount = this.orders.length;
+      this.newOrderCount = 0;
+      this.loadOrders();
+    }
+    if (tab === 'products') {
+      this.loadProducts();
+    }
+  }
+  
+  loadProducts() {
+    this.loadingProducts = true;
     this.ecommerceService.getSellerProducts().subscribe({
       next: (res: any) => {
         this.products = res;
         this.stats.totalProducts = res.length;
         this.stats.lowStock = res.filter((p: any) => p.stock < 10).length;
+        this.loadingProducts = false;
       },
-      error: (err) => console.error('Error loading products:', err)
+      error: (err) => {
+        console.error('Error loading products:', err);
+        this.loadingProducts = false;
+      }
     });
+  }
+  
+  loadOrders() {
+    this.loadingOrders = true;
+    console.log('🔄 Loading orders...');
     
     this.ecommerceService.getSellerOrders().subscribe({
       next: (res: any) => {
-        this.orders = res;
-        this.stats.totalOrders = res.length;
-        this.stats.totalSales = res.reduce((sum: number, order: any) => sum + order.totalAmount, 0);
+        console.log(`📦 Loaded ${res.length} orders`);
+        
+        // 🔍 DEBUG: Log the full order data
+        console.log('🔍 Full order data:', JSON.stringify(res, null, 2));
+        
+        // 🔍 DEBUG: Check each order's items
+        res.forEach((order: any, index: number) => {
+          console.log(`Order ${index + 1}:`);
+          console.log(`  ID: ${order._id}`);
+          console.log(`  Number: ${order.orderNumber}`);
+          console.log(`  Status: ${order.orderStatus}`);
+          console.log(`  Total: ₱${order.totalAmount}`);
+          console.log(`  Items count: ${order.items?.length || 0}`);
+          console.log(`  Items:`, order.items);
+        });
+        
+        // CHECK FOR NEW ORDERS
+        const currentCount = res.length;
+        if (currentCount > this.previousOrderCount && this.previousOrderCount > 0) {
+          const newCount = currentCount - this.previousOrderCount;
+          this.showNewOrderNotification(newCount);
+          this.newOrderCount = newCount;
+        } else {
+          this.newOrderCount = 0;
+        }
+        this.previousOrderCount = currentCount;
+        
+        // Force a new array to trigger change detection
+        this.orders = res.map((order: any) => ({
+          ...order,
+          // Ensure items is always an array
+          items: order.items || []
+        }));
+        
+        this.stats.totalOrders = this.orders.length;
+        this.stats.totalSales = this.orders.reduce((sum: number, order: any) => sum + order.totalAmount, 0);
+        this.loadingOrders = false;
+        
+        // Force change detection
+        setTimeout(() => {}, 0);
       },
-      error: (err) => console.error('Error loading orders:', err)
+      error: (err) => {
+        console.error('Error loading orders:', err);
+        this.loadingOrders = false;
+        this.showMessage('Failed to load orders: ' + (err.error?.error || err.message), 'error');
+      }
     });
+  }
+  
+  // Show notification for new orders
+  showNewOrderNotification(count: number) {
+    if (count === 1) {
+      this.showMessage('🔔 New order received!', 'success');
+    } else {
+      this.showMessage(`🔔 ${count} new orders received!`, 'success');
+    }
+    
+    // Update document title
+    document.title = `📦 ${count} New Order${count > 1 ? 's' : ''} - Cordi Cart`;
+    
+    // Reset title after 5 seconds
+    setTimeout(() => {
+      document.title = 'Cordi Cart - Seller Dashboard';
+    }, 5000);
   }
   
   onFilesSelected(event: any) {
@@ -475,7 +690,6 @@ export class SellerDashboardComponent implements OnInit {
   }
   
   async addProduct() {
-    // Validate form
     if (!this.newProduct.name || !this.newProduct.description || !this.newProduct.category) {
       this.showMessage('Please fill in all required fields', 'error');
       return;
@@ -491,7 +705,6 @@ export class SellerDashboardComponent implements OnInit {
       return;
     }
     
-    // Upload images first
     let imageUrls: string[] = [];
     if (this.selectedFiles.length > 0) {
       imageUrls = await this.uploadImages();
@@ -507,6 +720,7 @@ export class SellerDashboardComponent implements OnInit {
       price: this.newProduct.price,
       stock: this.newProduct.stock,
       category: this.newProduct.category,
+      origin: this.newProduct.origin || 'Benguet',
       images: imageUrls,
       isActive: true
     };
@@ -515,7 +729,7 @@ export class SellerDashboardComponent implements OnInit {
       next: (response: any) => {
         this.showMessage('✅ Product added successfully!', 'success');
         this.resetForm();
-        this.loadData();
+        this.loadProducts();
         this.activeTab = 'products';
         
         setTimeout(() => {
@@ -524,7 +738,7 @@ export class SellerDashboardComponent implements OnInit {
       },
       error: (err) => {
         console.error('Error adding product:', err);
-        this.showMessage('❌ Failed to add product. Please try again.', 'error');
+        this.showMessage('❌ Failed to add product. ' + (err.error?.error || 'Please try again.'), 'error');
       }
     });
   }
@@ -544,6 +758,7 @@ export class SellerDashboardComponent implements OnInit {
       price: 0,
       stock: 0,
       category: '',
+      origin: 'Benguet',
       images: []
     };
     this.selectedFiles = [];
@@ -561,11 +776,11 @@ export class SellerDashboardComponent implements OnInit {
       next: () => {
         this.showMessage('✅ Product updated successfully!', 'success');
         this.editingProduct = null;
-        this.loadData();
+        this.loadProducts();
       },
       error: (err) => {
         console.error('Update failed:', err);
-        this.showMessage('❌ Update failed', 'error');
+        this.showMessage('❌ Update failed: ' + (err.error?.error || err.message), 'error');
       }
     });
   }
@@ -579,24 +794,32 @@ export class SellerDashboardComponent implements OnInit {
       this.ecommerceService.deleteProduct(id).subscribe({
         next: () => {
           this.showMessage('✅ Product deleted', 'success');
-          this.loadData();
+          this.loadProducts();
         },
         error: (err) => {
           console.error('Delete failed:', err);
-          this.showMessage('❌ Delete failed', 'error');
+          this.showMessage('❌ Delete failed: ' + (err.error?.error || err.message), 'error');
         }
       });
     }
   }
   
   updateOrderStatus(orderId: string, status: string) {
+    console.log(`📦 Updating order ${orderId} to status: ${status}`);
+    
     this.ecommerceService.updateOrderStatus(orderId, status).subscribe({
-      next: () => {
-        this.showMessage('✅ Order status updated', 'success');
+      next: (response: any) => {
+        console.log('✅ Order status updated:', response);
+        this.showMessage('✅ Order status updated successfully!', 'success');
+        setTimeout(() => {
+          this.loadOrders();
+        }, 1000);
       },
       error: (err) => {
-        console.error('Update failed:', err);
-        this.showMessage('❌ Failed to update order status', 'error');
+        console.error('❌ Update failed:', err);
+        this.showMessage('❌ Failed to update order status: ' + (err.error?.error || err.message), 'error');
+        // Reload orders to revert any changes
+        this.loadOrders();
       }
     });
   }
