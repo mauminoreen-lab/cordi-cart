@@ -23,6 +23,14 @@ export interface User {
   createdAt: Date;
 }
 
+// ✅ ADD THIS NEW INTERFACE for binary image data
+export interface ProductImageData {
+  data: any;        // Buffer data from MongoDB
+  contentType: string;
+  filename: string;
+}
+
+// ✅ UPDATE the Product interface
 export interface Product {
   _id: string;
   name: string;
@@ -30,10 +38,10 @@ export interface Product {
   price: number;
   category: string;
   stock: number;
-  images: string[];
+  images: string[] | ProductImageData[];  // Can be either base64 strings or binary data
   seller: User | string;
   sellerName: string;
-  origin?: string;  // Added for Benguet products
+  origin?: string;
   rating: number;
   numReviews: number;
   isActive: boolean;
@@ -223,24 +231,18 @@ export class EcommerceService {
   }
   
   // ============= ORDERS (Buyer) =============
-// In ecommerce.service.ts
-createOrder(shippingAddress: ShippingAddress, paymentMethod: string) {
-  console.log('🛒🔴 SERVICE createOrder CALLED!');
-  console.log('🛒🔴 This should appear in browser console!');
-  console.log('📦 API URL:', `${this.apiUrl}/orders`);
-  console.log('📦 Shipping:', shippingAddress);
-  console.log('📦 Payment:', paymentMethod);
-  console.log('📦 Creating order...');
-  console.log('📦 API URL:', `${this.apiUrl}/orders`);
-  console.log('📦 Shipping:', shippingAddress);
-  console.log('📦 Payment:', paymentMethod);
-  console.log('📦 Headers:', this.getAuthHeaders());
-  
-  return this.http.post<Order>(`${this.apiUrl}/orders`, 
-    { shippingAddress, paymentMethod }, 
-    { headers: this.getAuthHeaders() }
-  );
-}
+  createOrder(shippingAddress: ShippingAddress, paymentMethod: string) {
+    console.log('📦 Creating order...');
+    console.log('📦 API URL:', `${this.apiUrl}/orders`);
+    console.log('📦 Shipping:', shippingAddress);
+    console.log('📦 Payment:', paymentMethod);
+    console.log('📦 Headers:', this.getAuthHeaders());
+    
+    return this.http.post<Order>(`${this.apiUrl}/orders`, 
+      { shippingAddress, paymentMethod }, 
+      { headers: this.getAuthHeaders() }
+    );
+  }
   
   getOrders() {
     return this.http.get<Order[]>(`${this.apiUrl}/orders`, { headers: this.getAuthHeaders() });
@@ -254,7 +256,7 @@ createOrder(shippingAddress: ShippingAddress, paymentMethod: string) {
     return this.http.get<any[]>(`${this.apiUrl}/orders/${orderId}/tracking`, { headers: this.getAuthHeaders() });
   }
   
-  // ============= SELLER METHODS (FIXED) =============
+  // ============= SELLER METHODS =============
   getSellerStats() {
     return this.http.get<any>(`${this.apiUrl}/seller/stats`, { headers: this.getAuthHeaders() });
   }
@@ -269,25 +271,23 @@ createOrder(shippingAddress: ShippingAddress, paymentMethod: string) {
     return this.http.post<Product>(`${this.apiUrl}/seller/products`, product, { headers: this.getAuthHeaders() });
   }
   
-  // FIXED: Changed from /seller/products/:id to /products/:id
   updateProduct(id: string, product: Partial<Product>) {
     console.log(`✏️ Updating product ${id}:`, product);
     return this.http.put<Product>(`${this.apiUrl}/products/${id}`, product, { headers: this.getAuthHeaders() });
   }
   
-  // FIXED: Changed from /seller/products/:id to /products/:id
   deleteProduct(id: string) {
     console.log(`🗑️ Deleting product ${id}`);
-    return this.http.delete(`${this.apiUrl}/products/${id}`, { headers: this.getAuthHeaders() });
+    return this.http.delete(`${this.apiUrl}/products/${id}`, { 
+      headers: this.getAuthHeaders() 
+    });
   }
   
-  // FIXED: Added proper logging for seller orders
   getSellerOrders() {
     console.log('📦 Fetching seller orders...');
     return this.http.get<Order[]>(`${this.apiUrl}/seller/orders`, { headers: this.getAuthHeaders() });
   }
   
-  // FIXED: This method already exists but we're ensuring it's correct
   updateOrderStatus(orderId: string, orderStatus: string) {
     console.log(`📦 Updating order ${orderId} to status: ${orderStatus}`);
     return this.http.put<any>(

@@ -13,8 +13,18 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-app.use(express.json());
-app.use(cors());
+
+// ============= CORS CONFIGURATION =============
+app.use(cors({
+  origin: ['http://localhost:4200', 'http://127.0.0.1:4200'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// ✅ Increase payload size limits for large images
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
@@ -23,6 +33,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cordicart
   .then(() => console.log('✅ MongoDB connected successfully'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
+// ... rest of your code
 // ============= SCHEMAS =============
 
 // User Schema
@@ -53,14 +64,18 @@ const categorySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Product Schema
+// Product Schema - UPDATED: Images stored as binary data
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, required: true },
   price: { type: Number, required: true },
   category: { type: String, required: true },
   stock: { type: Number, required: true, default: 0 },
-  images: [{ type: String }],
+  images: [{ 
+    data: Buffer,      // Binary image data
+    contentType: String, // MIME type (image/jpeg, image/png, etc.)
+    filename: String    // Original filename
+  }],
   seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   sellerName: { type: String },
   origin: { type: String, default: 'Benguet' },
@@ -304,15 +319,33 @@ app.get('/api/products', async (req, res) => {
       .limit(limit * 1)
       .skip((page - 1) * limit);
     
+    // Convert binary images to base64 for display
+    const productsWithImages = products.map(product => {
+      const productObj = product.toObject();
+      
+      if (productObj.images && productObj.images.length > 0) {
+        productObj.images = productObj.images.map(img => {
+          if (img && img.data && img.contentType) {
+            const base64 = img.data.toString('base64');
+            return `data:${img.contentType};base64,${base64}`;
+          }
+          return null;
+        }).filter(Boolean);
+      }
+      
+      return productObj;
+    });
+    
     const total = await Product.countDocuments(query);
     
     res.json({
-      products,
+      products: productsWithImages,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
       total
     });
   } catch (error) {
+    console.error('Error fetching products:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -320,12 +353,28 @@ app.get('/api/products', async (req, res) => {
 // GET single product - PUBLIC
 app.get('/api/products/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).populate('seller', 'username storeName storeDescription');
+    const product = await Product.findById(req.params.id)
+      .populate('seller', 'username storeName storeDescription');
+    
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
-    res.json(product);
+    
+    const productObj = product.toObject();
+    
+    if (productObj.images && productObj.images.length > 0) {
+      productObj.images = productObj.images.map(img => {
+        if (img && img.data && img.contentType) {
+          const base64 = img.data.toString('base64');
+          return `data:${img.contentType};base64,${base64}`;
+        }
+        return null;
+      }).filter(Boolean);
+    }
+    
+    res.json(productObj);
   } catch (error) {
+    console.error('Error fetching product:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -354,20 +403,26 @@ app.put('/api/products/:id', authenticateToken, async (req, res) => {
 // DELETE - Remove product (Admin or Product Owner)
 app.delete('/api/products/:id', authenticateToken, async (req, res) => {
   try {
+    console.log(`🗑️ Deleting product: ${req.params.id}`);
+    
     const product = await Product.findById(req.params.id);
     if (!product) {
+      console.log('❌ Product not found');
       return res.status(404).json({ error: 'Product not found' });
     }
     
     const user = await User.findById(req.user.userId);
     if (user.role !== 'admin' && product.seller.toString() !== req.user.userId) {
+      console.log('❌ Unauthorized - User is not the seller');
       return res.status(403).json({ error: 'Unauthorized' });
     }
     
     await Product.findByIdAndDelete(req.params.id);
-    res.status(204).send();
+    console.log('✅ Product deleted successfully');
+    res.json({ message: 'Product deleted successfully' });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('❌ Delete error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -473,6 +528,7 @@ app.delete('/api/cart/remove/:productId', authenticateToken, async (req, res) =>
     res.status(400).json({ error: error.message });
   }
 });
+
 // ============= ORDER ROUTES =============
 
 app.post('/api/orders', authenticateToken, async (req, res) => {
@@ -482,8 +538,6 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     console.log('👤 User ID:', req.user.userId);
     
     const { shippingAddress, paymentMethod } = req.body;
-    console.log('📦 Shipping:', shippingAddress);
-    console.log('💳 Payment:', paymentMethod);
     
     const cart = await Cart.findOne({ user: req.user.userId }).populate({
       path: 'items.product',
@@ -494,7 +548,6 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     console.log('🛒 Cart items count:', cart?.items?.length || 0);
     
     if (!cart || cart.items.length === 0) {
-      console.log('❌ Cart is empty!');
       return res.status(400).json({ error: 'Cart is empty' });
     }
     
@@ -502,15 +555,11 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     
     for (const item of cart.items) {
       console.log(`📦 Processing item: ${item.product.name}`);
-      console.log(`  Product ID: ${item.product._id}`);
-      console.log(`  Quantity: ${item.quantity}`);
-      console.log(`  Price: ₱${item.product.price}`);
       
       const sellerId = (item.product.seller?._id || item.product.seller).toString();
-      console.log(`  Seller ID: ${sellerId}`);
       
       if (!sellerId) {
-        console.error(`❌ ERROR: Product ${item.product.name} has no seller!`);
+        console.error(`ERROR: Product ${item.product.name} has no seller!`);
         continue;
       }
       
@@ -532,16 +581,12 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
       itemsBySeller[sellerId].totalAmount += itemTotal;
     }
     
-    console.log(`📦 Items grouped into ${Object.keys(itemsBySeller).length} seller(s)`);
-    console.log('📦 Sellers:', Object.keys(itemsBySeller));
+    console.log(`Items grouped into ${Object.keys(itemsBySeller).length} seller(s)`);
     
     const createdOrders = [];
     
     for (const sellerId in itemsBySeller) {
       const sellerData = itemsBySeller[sellerId];
-      console.log(`📦 Creating order for seller ${sellerId}`);
-      console.log(`  Items: ${sellerData.items.length}`);
-      console.log(`  Total: ₱${sellerData.totalAmount}`);
       
       const order = new Order({
         orderNumber: generateOrderNumber(),
@@ -558,7 +603,6 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
       
       await order.save();
       createdOrders.push(order);
-      console.log(`✅ Order created: ${order.orderNumber}`);
       
       const tracking = new DeliveryTracking({
         orderId: order._id,
@@ -566,23 +610,18 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
         description: 'Order confirmed, preparing for shipment'
       });
       await tracking.save();
-      console.log(`✅ Tracking created for order ${order.orderNumber}`);
     }
     
     cart.items = [];
     await cart.save();
-    console.log('🛒 Cart cleared');
     
     console.log(`✅ ${createdOrders.length} order(s) placed successfully`);
-    console.log('🛒 ORDER CREATION COMPLETED');
-    
     res.status(201).json({ 
       message: 'Orders placed successfully', 
       orders: createdOrders 
     });
   } catch (error) {
     console.error('❌ Order creation error:', error);
-    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 });
@@ -706,17 +745,37 @@ app.get('/api/seller/stats', authenticateToken, isSeller, async (req, res) => {
   }
 });
 
-// Get seller products
+// Get seller products - UPDATED with binary image conversion
 app.get('/api/seller/products', authenticateToken, isSeller, async (req, res) => {
   try {
-    const products = await Product.find({ seller: req.user.userId }).sort({ createdAt: -1 });
-    res.json(products);
+    const products = await Product.find({ seller: req.user.userId })
+      .sort({ createdAt: -1 });
+    
+    // Convert binary images to base64 for display
+    const productsWithImages = products.map(product => {
+      const productObj = product.toObject();
+      
+      if (productObj.images && productObj.images.length > 0) {
+        productObj.images = productObj.images.map(img => {
+          if (img && img.data && img.contentType) {
+            const base64 = img.data.toString('base64');
+            return `data:${img.contentType};base64,${base64}`;
+          }
+          return null;
+        }).filter(Boolean);
+      }
+      
+      return productObj;
+    });
+    
+    res.json(productsWithImages);
   } catch (error) {
+    console.error('Error fetching seller products:', error);
     res.status(400).json({ error: error.message });
   }
 });
 
-// Add product - SELLER endpoint
+// Add product - SELLER endpoint - UPDATED for binary images
 app.post('/api/seller/products', authenticateToken, isSeller, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -725,10 +784,18 @@ app.post('/api/seller/products', authenticateToken, isSeller, async (req, res) =
       return res.status(401).json({ error: 'User not found' });
     }
     
+    const { name, description, price, category, stock, origin, images } = req.body;
+    
     const product = new Product({ 
-      ...req.body,
+      name,
+      description,
+      price,
+      category,
+      stock,
+      origin: origin || 'Benguet',
       seller: req.user.userId,
-      sellerName: user.storeName || user.username
+      sellerName: user.storeName || user.username,
+      images: images || []  // This will store binary image data
     });
     
     await product.save();
@@ -807,71 +874,10 @@ app.put('/api/seller/orders/:id/status', authenticateToken, isSeller, async (req
   }
 });
 
-// ============= DEBUG ENDPOINT =============
-app.get('/api/debug/check-products', async (req, res) => {
-  try {
-    const products = await Product.find().populate('seller', 'username');
-    const productInfo = products.map(p => ({
-      id: p._id,
-      name: p.name,
-      sellerId: p.seller?._id || p.seller,
-      sellerName: p.sellerName
-    }));
-    res.json({
-      count: products.length,
-      products: productInfo
-    });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-// Add this to server.js - Debug products with sellers
-app.get('/api/debug/products-with-sellers', authenticateToken, async (req, res) => {
-  try {
-    console.log('🔍 Fetching products with seller info...');
-    const products = await Product.find().populate('seller', 'username email');
-    
-    const productData = products.map(p => ({
-      id: p._id,
-      name: p.name,
-      sellerId: p.seller?._id || p.seller,
-      sellerName: p.seller?.username || 'No Seller Assigned!',
-      sellerEmail: p.seller?.email || 'No Email',
-      price: p.price,
-      stock: p.stock
-    }));
-    
-    console.log(`📦 Found ${products.length} products`);
-    
-    res.json({
-      totalProducts: products.length,
-      products: productData,
-      warning: products.filter(p => !p.seller).length > 0 ? 
-        `⚠️ ${products.filter(p => !p.seller).length} product(s) have NO seller assigned!` : 
-        '✅ All products have sellers assigned'
-    });
-  } catch (error) {
-    console.error('Debug error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // ============= IMAGE UPLOAD SETUP =============
 
-const uploadDir = './uploads';
-if (!fs.existsSync(uploadDir)){
-    fs.mkdirSync(uploadDir);
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/')
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer for memory storage (store in buffer, not on disk)
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png|gif|webp/;
@@ -886,15 +892,12 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: storage,  // Use memory storage to store in buffer
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: fileFilter
 });
 
-// Serve uploaded files statically
-app.use('/uploads', express.static('uploads'));
-
-// ============= IMAGE UPLOAD ROUTE =============
+// ============= IMAGE UPLOAD ROUTE - UPDATED for binary storage =============
 app.post('/api/upload', authenticateToken, upload.array('images', 5), async (req, res) => {
   try {
     const files = req.files;
@@ -902,10 +905,44 @@ app.post('/api/upload', authenticateToken, upload.array('images', 5), async (req
       return res.status(400).json({ error: 'No files uploaded' });
     }
     
-    const imageUrls = files.map(file => `${req.protocol}://${req.get('host')}/uploads/${file.filename}`);
-    res.json({ images: imageUrls });
+    console.log(`📤 Uploading ${files.length} images to MongoDB...`);
+    
+    // Store images as binary data
+    const imageData = files.map(file => ({
+      data: file.buffer,           // The binary image data
+      contentType: file.mimetype,   // e.g., image/jpeg
+      filename: file.originalname   // Original filename
+    }));
+    
+    console.log(`✅ Images stored in memory, ready to save to MongoDB`);
+    
+    // Return the binary data to be stored in the product
+    res.json({ 
+      images: imageData
+    });
   } catch (error) {
     console.error('Upload error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============= DEBUG ENDPOINTS =============
+
+app.get('/api/debug/check-products', async (req, res) => {
+  try {
+    const products = await Product.find().populate('seller', 'username');
+    const productInfo = products.map(p => ({
+      id: p._id,
+      name: p.name,
+      sellerId: p.seller?._id || p.seller,
+      sellerName: p.sellerName,
+      imageCount: p.images ? p.images.length : 0
+    }));
+    res.json({
+      count: products.length,
+      products: productInfo
+    });
+  } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
@@ -940,40 +977,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 API: http://localhost:${PORT}/api`);
-});
-
-// Add this to server.js - Debug all orders
-app.get('/api/debug/all-orders', authenticateToken, async (req, res) => {
-  try {
-    console.log('🔍 Fetching all orders from database...');
-    const orders = await Order.find()
-      .populate('user', 'username email role')
-      .populate('items.sellerId', 'username email');
-    
-    console.log(`📦 Found ${orders.length} total orders`);
-    
-    const orderData = orders.map(order => ({
-      _id: order._id,
-      orderNumber: order.orderNumber,
-      buyer: order.user?.username || 'Unknown',
-      buyerId: order.user?._id,
-      totalAmount: order.totalAmount,
-      orderStatus: order.orderStatus,
-      items: order.items.map(item => ({
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        sellerId: item.sellerId?._id || item.sellerId,
-        sellerName: item.sellerId?.username || 'Unknown'
-      }))
-    }));
-    
-    res.json({
-      totalOrders: orders.length,
-      orders: orderData
-    });
-  } catch (error) {
-    console.error('Debug error:', error);
-    res.status(500).json({ error: error.message });
-  }
 });

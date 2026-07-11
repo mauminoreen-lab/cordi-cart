@@ -119,16 +119,6 @@ import { EcommerceService, Product, Order } from '../../../services/ecommerce.se
             <div class="no-orders">No orders yet.</div>
           }
           
-          <!-- DEBUG: Show raw data -->
-          @if (!loadingOrders && orders.length > 0) {
-            <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ff9800;">
-              <h4 style="margin: 0 0 10px 0;">🔍 Debug Info - {{ orders.length }} Order(s) Found</h4>
-              <div style="font-size: 12px; max-height: 300px; overflow: auto; background: #fff; padding: 10px; border-radius: 4px;">
-                <pre>{{ orders | json }}</pre>
-              </div>
-            </div>
-          }
-          
           @for (order of orders; track order._id) {
             <div class="order-card">
               <div class="order-header">
@@ -471,19 +461,16 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
   private refreshInterval: any;
   
   ngOnInit() {
-    // ✅ REMOVE the problematic checkSellerInfo() call - just use console directly
     console.log('👤 Current Seller:', this.ecommerceService.currentUser());
     
     this.loadProducts();
     this.loadOrders();
     
-    // Set initial order count after first load
     setTimeout(() => {
       this.previousOrderCount = this.orders.length;
       this.newOrderCount = 0;
     }, 1000);
     
-    // Auto-refresh orders every 10 seconds when on orders tab
     this.refreshInterval = setInterval(() => {
       if (this.activeTab === 'orders') {
         console.log('🔄 Auto-refreshing orders...');
@@ -504,7 +491,6 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
   setActiveTab(tab: string) {
     this.activeTab = tab;
     if (tab === 'orders') {
-      // Reset previous count when manually refreshing
       this.previousOrderCount = this.orders.length;
       this.newOrderCount = 0;
       this.loadOrders();
@@ -538,21 +524,6 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
       next: (res: any) => {
         console.log(`📦 Loaded ${res.length} orders`);
         
-        // 🔍 DEBUG: Log the full order data
-        console.log('🔍 Full order data:', JSON.stringify(res, null, 2));
-        
-        // 🔍 DEBUG: Check each order's items
-        res.forEach((order: any, index: number) => {
-          console.log(`Order ${index + 1}:`);
-          console.log(`  ID: ${order._id}`);
-          console.log(`  Number: ${order.orderNumber}`);
-          console.log(`  Status: ${order.orderStatus}`);
-          console.log(`  Total: ₱${order.totalAmount}`);
-          console.log(`  Items count: ${order.items?.length || 0}`);
-          console.log(`  Items:`, order.items);
-        });
-        
-        // CHECK FOR NEW ORDERS
         const currentCount = res.length;
         if (currentCount > this.previousOrderCount && this.previousOrderCount > 0) {
           const newCount = currentCount - this.previousOrderCount;
@@ -563,10 +534,8 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
         }
         this.previousOrderCount = currentCount;
         
-        // Force a new array to trigger change detection
         this.orders = res.map((order: any) => ({
           ...order,
-          // Ensure items is always an array
           items: order.items || []
         }));
         
@@ -574,7 +543,6 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
         this.stats.totalSales = this.orders.reduce((sum: number, order: any) => sum + order.totalAmount, 0);
         this.loadingOrders = false;
         
-        // Force change detection
         setTimeout(() => {}, 0);
       },
       error: (err) => {
@@ -585,7 +553,6 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
     });
   }
   
-  // Show notification for new orders
   showNewOrderNotification(count: number) {
     if (count === 1) {
       this.showMessage('🔔 New order received!', 'success');
@@ -593,10 +560,8 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
       this.showMessage(`🔔 ${count} new orders received!`, 'success');
     }
     
-    // Update document title
     document.title = `📦 ${count} New Order${count > 1 ? 's' : ''} - Cordi Cart`;
     
-    // Reset title after 5 seconds
     setTimeout(() => {
       document.title = 'Cordi Cart - Seller Dashboard';
     }, 5000);
@@ -656,7 +621,8 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
     this.imagePreviews.splice(index, 1);
   }
   
-  async uploadImages(): Promise<string[]> {
+  // ✅ UPDATED: Upload images as binary data
+  async uploadImages(): Promise<any[]> {
     if (this.selectedFiles.length === 0) return [];
     
     this.uploading = true;
@@ -680,6 +646,8 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
       const data = await response.json();
       this.uploadProgress = 100;
       setTimeout(() => { this.uploading = false; }, 500);
+      
+      // Return the image data (binary) for storage in MongoDB
       return data.images || [];
     } catch (error) {
       console.error('Upload error:', error);
@@ -689,6 +657,7 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
     }
   }
   
+  // ✅ UPDATED: Add product with binary image data
   async addProduct() {
     if (!this.newProduct.name || !this.newProduct.description || !this.newProduct.category) {
       this.showMessage('Please fill in all required fields', 'error');
@@ -705,10 +674,10 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
       return;
     }
     
-    let imageUrls: string[] = [];
+    let imageData: any[] = [];
     if (this.selectedFiles.length > 0) {
-      imageUrls = await this.uploadImages();
-      if (imageUrls.length === 0 && this.selectedFiles.length > 0) {
+      imageData = await this.uploadImages();
+      if (imageData.length === 0 && this.selectedFiles.length > 0) {
         this.showMessage('Failed to upload images. Please try again.', 'error');
         return;
       }
@@ -721,7 +690,7 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
       stock: this.newProduct.stock,
       category: this.newProduct.category,
       origin: this.newProduct.origin || 'Benguet',
-      images: imageUrls,
+      images: imageData,  // ✅ This will store binary data in MongoDB
       isActive: true
     };
     
@@ -791,14 +760,19 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
   
   deleteProduct(id: string) {
     if (confirm('Are you sure you want to delete this product?')) {
+      console.log(`🗑️ Deleting product ${id}...`);
+      
       this.ecommerceService.deleteProduct(id).subscribe({
-        next: () => {
-          this.showMessage('✅ Product deleted', 'success');
+        next: (response) => {
+          console.log('✅ Product deleted:', response);
+          this.showMessage('✅ Product deleted successfully!', 'success');
           this.loadProducts();
         },
         error: (err) => {
-          console.error('Delete failed:', err);
-          this.showMessage('❌ Delete failed: ' + (err.error?.error || err.message), 'error');
+          console.error('❌ Delete failed:', err);
+          console.error('❌ Error details:', err.error);
+          this.showMessage('❌ Failed to delete product: ' + (err.error?.error || err.message || 'Please try again.'), 'error');
+          this.loadProducts();
         }
       });
     }
@@ -818,7 +792,6 @@ export class SellerDashboardComponent implements OnInit, OnDestroy {
       error: (err) => {
         console.error('❌ Update failed:', err);
         this.showMessage('❌ Failed to update order status: ' + (err.error?.error || err.message), 'error');
-        // Reload orders to revert any changes
         this.loadOrders();
       }
     });
