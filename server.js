@@ -19,7 +19,7 @@ app.use(cors());
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
 // MongoDB connection
-mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cordicart')
   .then(() => console.log('✅ MongoDB connected successfully'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
@@ -63,6 +63,7 @@ const productSchema = new mongoose.Schema({
   images: [{ type: String }],
   seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   sellerName: { type: String },
+  origin: { type: String, default: 'Benguet' },
   rating: { type: Number, default: 0 },
   numReviews: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true },
@@ -82,7 +83,6 @@ const cartSchema = new mongoose.Schema({
 const orderSchema = new mongoose.Schema({
   orderNumber: { type: String, unique: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   items: [{
     product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
     name: String,
@@ -373,23 +373,38 @@ app.delete('/api/products/:id', authenticateToken, async (req, res) => {
 
 // ============= CART ROUTES =============
 
+// GET cart
 app.get('/api/cart', authenticateToken, async (req, res) => {
   try {
-    let cart = await Cart.findOne({ user: req.user.userId }).populate('items.product');
+    let cart = await Cart.findOne({ user: req.user.userId })
+      .populate({
+        path: 'items.product',
+        populate: { path: 'seller', select: 'username storeName' }
+      });
+      
     if (!cart) {
       cart = new Cart({ user: req.user.userId, items: [] });
       await cart.save();
     }
+    
     res.json(cart);
   } catch (error) {
+    console.error('Get cart error:', error);
     res.status(400).json({ error: error.message });
   }
 });
 
+// ADD to cart
 app.post('/api/cart/add', authenticateToken, async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, quantity = 1 } = req.body;
     let cart = await Cart.findOne({ user: req.user.userId });
+    
+    const product = await Product.findById(productId).populate('seller', 'username');
+    
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
     
     if (!cart) {
       cart = new Cart({ user: req.user.userId, items: [] });
@@ -404,13 +419,20 @@ app.post('/api/cart/add', authenticateToken, async (req, res) => {
     }
     
     await cart.save();
-    cart = await cart.populate('items.product');
-    res.json(cart);
+    
+    const populatedCart = await Cart.findById(cart._id).populate({
+      path: 'items.product',
+      populate: { path: 'seller', select: 'username storeName' }
+    });
+    
+    res.json(populatedCart);
   } catch (error) {
+    console.error('Add to cart error:', error);
     res.status(400).json({ error: error.message });
   }
 });
 
+// UPDATE cart item
 app.put('/api/cart/update/:productId', authenticateToken, async (req, res) => {
   try {
     const { quantity } = req.body;
@@ -426,74 +448,146 @@ app.put('/api/cart/update/:productId', authenticateToken, async (req, res) => {
       await cart.save();
     }
     
-    await cart.populate('items.product');
+    await cart.populate({
+      path: 'items.product',
+      populate: { path: 'seller', select: 'username storeName' }
+    });
     res.json(cart);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
+// REMOVE from cart
 app.delete('/api/cart/remove/:productId', authenticateToken, async (req, res) => {
   try {
     const cart = await Cart.findOne({ user: req.user.userId });
     cart.items = cart.items.filter(item => item.product.toString() !== req.params.productId);
     await cart.save();
-    await cart.populate('items.product');
+    await cart.populate({
+      path: 'items.product',
+      populate: { path: 'seller', select: 'username storeName' }
+    });
     res.json(cart);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
-
 // ============= ORDER ROUTES =============
 
 app.post('/api/orders', authenticateToken, async (req, res) => {
   try {
+    console.log('🛒 ORDER CREATION STARTED');
+    console.log('📦 Request body:', req.body);
+    console.log('👤 User ID:', req.user.userId);
+    
     const { shippingAddress, paymentMethod } = req.body;
-    const cart = await Cart.findOne({ user: req.user.userId }).populate('items.product');
+    console.log('📦 Shipping:', shippingAddress);
+    console.log('💳 Payment:', paymentMethod);
+    
+    const cart = await Cart.findOne({ user: req.user.userId }).populate({
+      path: 'items.product',
+      populate: { path: 'seller', select: 'username storeName' }
+    });
+    
+    console.log('🛒 Cart found:', cart ? 'Yes' : 'No');
+    console.log('🛒 Cart items count:', cart?.items?.length || 0);
     
     if (!cart || cart.items.length === 0) {
+      console.log('❌ Cart is empty!');
       return res.status(400).json({ error: 'Cart is empty' });
     }
     
-    const items = cart.items.map(item => ({
-      product: item.product._id,
-      name: item.product.name,
-      price: item.product.price,
-      quantity: item.quantity,
-      sellerId: item.product.seller
-    }));
+    const itemsBySeller = {};
     
-    const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    for (const item of cart.items) {
+      console.log(`📦 Processing item: ${item.product.name}`);
+      console.log(`  Product ID: ${item.product._id}`);
+      console.log(`  Quantity: ${item.quantity}`);
+      console.log(`  Price: ₱${item.product.price}`);
+      
+      const sellerId = (item.product.seller?._id || item.product.seller).toString();
+      console.log(`  Seller ID: ${sellerId}`);
+      
+      if (!sellerId) {
+        console.error(`❌ ERROR: Product ${item.product.name} has no seller!`);
+        continue;
+      }
+      
+      if (!itemsBySeller[sellerId]) {
+        itemsBySeller[sellerId] = {
+          sellerId: sellerId,
+          items: [],
+          totalAmount: 0
+        };
+      }
+      const itemTotal = item.product.price * item.quantity;
+      itemsBySeller[sellerId].items.push({
+        product: item.product._id,
+        name: item.product.name,
+        price: item.product.price,
+        quantity: item.quantity,
+        sellerId: sellerId
+      });
+      itemsBySeller[sellerId].totalAmount += itemTotal;
+    }
     
-    const order = new Order({
-      orderNumber: generateOrderNumber(),
-      user: req.user.userId,
-      items,
-      totalAmount,
-      shippingAddress,
-      paymentMethod,
-      estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    });
+    console.log(`📦 Items grouped into ${Object.keys(itemsBySeller).length} seller(s)`);
+    console.log('📦 Sellers:', Object.keys(itemsBySeller));
     
-    await order.save();
+    const createdOrders = [];
+    
+    for (const sellerId in itemsBySeller) {
+      const sellerData = itemsBySeller[sellerId];
+      console.log(`📦 Creating order for seller ${sellerId}`);
+      console.log(`  Items: ${sellerData.items.length}`);
+      console.log(`  Total: ₱${sellerData.totalAmount}`);
+      
+      const order = new Order({
+        orderNumber: generateOrderNumber(),
+        user: req.user.userId,
+        items: sellerData.items,
+        totalAmount: sellerData.totalAmount,
+        shippingAddress: shippingAddress,
+        paymentMethod: paymentMethod,
+        paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
+        orderStatus: 'pending',
+        deliveryStatus: 'preparing',
+        estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      });
+      
+      await order.save();
+      createdOrders.push(order);
+      console.log(`✅ Order created: ${order.orderNumber}`);
+      
+      const tracking = new DeliveryTracking({
+        orderId: order._id,
+        status: 'preparing',
+        description: 'Order confirmed, preparing for shipment'
+      });
+      await tracking.save();
+      console.log(`✅ Tracking created for order ${order.orderNumber}`);
+    }
     
     cart.items = [];
     await cart.save();
+    console.log('🛒 Cart cleared');
     
-    const tracking = new DeliveryTracking({
-      orderId: order._id,
-      status: 'preparing',
-      description: 'Order confirmed, preparing for shipment'
+    console.log(`✅ ${createdOrders.length} order(s) placed successfully`);
+    console.log('🛒 ORDER CREATION COMPLETED');
+    
+    res.status(201).json({ 
+      message: 'Orders placed successfully', 
+      orders: createdOrders 
     });
-    await tracking.save();
-    
-    res.status(201).json(order);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('❌ Order creation error:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({ error: error.message });
   }
 });
 
+// Get buyer orders
 app.get('/api/orders', authenticateToken, async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user.userId }).sort({ createdAt: -1 });
@@ -503,6 +597,7 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
   }
 });
 
+// Get single order
 app.get('/api/orders/:id', authenticateToken, async (req, res) => {
   try {
     const order = await Order.findOne({ _id: req.params.id, user: req.user.userId });
@@ -515,6 +610,7 @@ app.get('/api/orders/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Get order tracking
 app.get('/api/orders/:id/tracking', authenticateToken, async (req, res) => {
   try {
     const tracking = await DeliveryTracking.find({ orderId: req.params.id }).sort({ timestamp: -1 });
@@ -585,18 +681,28 @@ app.get('/api/admin/stats', authenticateToken, isAdmin, async (req, res) => {
 // Get seller stats
 app.get('/api/seller/stats', authenticateToken, isSeller, async (req, res) => {
   try {
-    const products = await Product.find({ seller: req.user.userId });
-    const orders = await Order.find({ 'items.sellerId': req.user.userId });
-    const totalSales = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const sellerId = req.user.userId;
+    const products = await Product.find({ seller: sellerId });
+    const orders = await Order.find({ 'items.sellerId': sellerId });
+    
+    let totalSales = 0;
+    for (const order of orders) {
+      const sellerItems = order.items.filter(item => 
+        item.sellerId && item.sellerId.toString() === sellerId
+      );
+      const sellerTotal = sellerItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      totalSales += sellerTotal;
+    }
     
     res.json({
       totalProducts: products.length,
       totalOrders: orders.length,
-      totalSales,
+      totalSales: totalSales,
       lowStock: products.filter(p => p.stock < 10).length
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error fetching seller stats:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -613,7 +719,6 @@ app.get('/api/seller/products', authenticateToken, isSeller, async (req, res) =>
 // Add product - SELLER endpoint
 app.post('/api/seller/products', authenticateToken, isSeller, async (req, res) => {
   try {
-    console.log('📦 Seller adding product:', req.body);
     const user = await User.findById(req.user.userId);
     
     if (!user) {
@@ -638,12 +743,28 @@ app.post('/api/seller/products', authenticateToken, isSeller, async (req, res) =
 // Get seller orders
 app.get('/api/seller/orders', authenticateToken, isSeller, async (req, res) => {
   try {
-    const orders = await Order.find({ 'items.sellerId': req.user.userId })
-      .populate('user', 'username email')
-      .sort({ createdAt: -1 });
-    res.json(orders);
+    const sellerId = req.user.userId;
+    const orders = await Order.find({ 
+      'items.sellerId': sellerId 
+    })
+    .populate('user', 'username email')
+    .sort({ createdAt: -1 });
+    
+    const sellerOrders = orders.map(order => {
+      const sellerItems = order.items.filter(item => 
+        item.sellerId && item.sellerId.toString() === sellerId
+      );
+      return {
+        ...order.toObject(),
+        items: sellerItems,
+        totalAmount: sellerItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      };
+    });
+    
+    res.json(sellerOrders);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error fetching seller orders:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -651,23 +772,87 @@ app.get('/api/seller/orders', authenticateToken, isSeller, async (req, res) => {
 app.put('/api/seller/orders/:id/status', authenticateToken, isSeller, async (req, res) => {
   try {
     const { orderStatus } = req.body;
-    const order = await Order.findOne({ _id: req.params.id, 'items.sellerId': req.user.userId });
+    const order = await Order.findById(req.params.id);
+    
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }
+    
+    const hasSellerItems = order.items.some(item => 
+      item.sellerId && item.sellerId.toString() === req.user.userId
+    );
+    
+    if (!hasSellerItems) {
+      return res.status(403).json({ error: 'You are not authorized to update this order' });
+    }
+    
     order.orderStatus = orderStatus;
     await order.save();
     
     const tracking = new DeliveryTracking({
       orderId: order._id,
       status: orderStatus,
-      description: `Order status updated to ${orderStatus}`
+      description: `Order status updated to ${orderStatus} by seller`
     });
     await tracking.save();
     
-    res.json(order);
+    res.json({ 
+      success: true, 
+      message: 'Order status updated successfully',
+      order: order 
+    });
+  } catch (error) {
+    console.error('❌ Error updating order status:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============= DEBUG ENDPOINT =============
+app.get('/api/debug/check-products', async (req, res) => {
+  try {
+    const products = await Product.find().populate('seller', 'username');
+    const productInfo = products.map(p => ({
+      id: p._id,
+      name: p.name,
+      sellerId: p.seller?._id || p.seller,
+      sellerName: p.sellerName
+    }));
+    res.json({
+      count: products.length,
+      products: productInfo
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+// Add this to server.js - Debug products with sellers
+app.get('/api/debug/products-with-sellers', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔍 Fetching products with seller info...');
+    const products = await Product.find().populate('seller', 'username email');
+    
+    const productData = products.map(p => ({
+      id: p._id,
+      name: p.name,
+      sellerId: p.seller?._id || p.seller,
+      sellerName: p.seller?.username || 'No Seller Assigned!',
+      sellerEmail: p.seller?.email || 'No Email',
+      price: p.price,
+      stock: p.stock
+    }));
+    
+    console.log(`📦 Found ${products.length} products`);
+    
+    res.json({
+      totalProducts: products.length,
+      products: productData,
+      warning: products.filter(p => !p.seller).length > 0 ? 
+        `⚠️ ${products.filter(p => !p.seller).length} product(s) have NO seller assigned!` : 
+        '✅ All products have sellers assigned'
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -678,7 +863,6 @@ if (!fs.existsSync(uploadDir)){
     fs.mkdirSync(uploadDir);
 }
 
-// Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, 'uploads/')
@@ -756,4 +940,40 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 API: http://localhost:${PORT}/api`);
+});
+
+// Add this to server.js - Debug all orders
+app.get('/api/debug/all-orders', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔍 Fetching all orders from database...');
+    const orders = await Order.find()
+      .populate('user', 'username email role')
+      .populate('items.sellerId', 'username email');
+    
+    console.log(`📦 Found ${orders.length} total orders`);
+    
+    const orderData = orders.map(order => ({
+      _id: order._id,
+      orderNumber: order.orderNumber,
+      buyer: order.user?.username || 'Unknown',
+      buyerId: order.user?._id,
+      totalAmount: order.totalAmount,
+      orderStatus: order.orderStatus,
+      items: order.items.map(item => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        sellerId: item.sellerId?._id || item.sellerId,
+        sellerName: item.sellerId?.username || 'Unknown'
+      }))
+    }));
+    
+    res.json({
+      totalOrders: orders.length,
+      orders: orderData
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
