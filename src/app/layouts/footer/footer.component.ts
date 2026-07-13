@@ -7,7 +7,7 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   template: `
     <footer style="background: #333; color: white; text-align: center; padding: 20px; margin-top: 40px;">
-      <p>&copy; 2024 CordiCart. All rights reserved.</p>
+      <p>&copy; 2026 CordiCart. All rights reserved.</p>
     </footer>
   `
 })
