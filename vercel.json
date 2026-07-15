@@ -3,8 +3,5 @@
   "outputDirectory": "dist/cordi-cart",
   "devCommand": "ng serve",
   "installCommand": "npm install",
-  "framework": "angular",
-  "env": {
-    "API_URL": "https://cordi-cart.onrender.com"
-  }
+  "framework": "angular"
 }
