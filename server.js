@@ -19,6 +19,7 @@ const app = express();
 app.use(cors({
   origin: [
     'https://cordi-cart-working-model-git-main-uminoreen.vercel.app',
+    'https://cordi-cart-working-model.vercel.app',
     'https://cordi-cart.vercel.app',
     'https://cordi-cart.onrender.com',
     'http://localhost:4200',
