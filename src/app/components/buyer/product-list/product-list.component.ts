@@ -1,23 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';  // Add this
-import { EcommerceService } from '../../../services/ecommerce.service';
-
-export interface Product {
-  _id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  stock: number;
-  images: string[];
-  seller: string;
-  sellerName: string;
-  rating: number;
-  numReviews: number;
-  isActive: boolean;
-  createdAt: Date;
-}
+import { ActivatedRoute } from '@angular/router';
+import { EcommerceService, Product } from '../../../services/ecommerce.service'; // ✅ Import Product from service
 
 @Component({
   selector: 'app-product-list',
@@ -27,7 +11,6 @@ export interface Product {
     <div class="container">
       <h2>Products</h2>
       
-      <!-- Show search query if searching -->
       @if (searchQuery) {
         <div class="search-info">
           Showing results for: "<strong>{{ searchQuery }}</strong>"
@@ -51,7 +34,7 @@ export interface Product {
         @for (product of products; track product._id) {
           <div class="product-card">
             <div class="product-image">
-              <img [src]="product.images[0] || 'https://via.placeholder.com/200'" [alt]="product.name">
+              <img [src]="(product.images && product.images.length > 0) ? product.images[0] : 'https://via.placeholder.com/200'" [alt]="product.name">
             </div>
             <div class="product-info">
               <h3>{{ product.name }}</h3>
@@ -89,8 +72,7 @@ export interface Product {
       }
     </div>
   `,
-  styles: [`
-    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  styles: [` .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
     h2 { color: #333; margin-bottom: 20px; }
     
     .search-info {
@@ -196,17 +178,16 @@ export interface Product {
       padding: 5px 10px; 
       border-radius: 4px; 
       font-size: 12px; 
-    }
-  `]
+    }`]
 })
 export class ProductListComponent implements OnInit {
   private ecommerceService = inject(EcommerceService);
-  private route = inject(ActivatedRoute);  // Add this
+  private route = inject(ActivatedRoute);
   
   products: Product[] = [];
   loading = true;
   error = '';
-  searchQuery = '';  // Add this
+  searchQuery = '';
   
   get isSeller() {
     return this.ecommerceService.isSeller();
@@ -221,7 +202,6 @@ export class ProductListComponent implements OnInit {
   }
   
   ngOnInit() {
-    // Read search query from URL
     this.route.queryParams.subscribe(params => {
       this.searchQuery = params['search'] || '';
       this.loadProducts();
@@ -232,31 +212,21 @@ export class ProductListComponent implements OnInit {
     this.loading = true;
     this.error = '';
     
-    let url = 'http://localhost:3000/api/products';
-    if (this.searchQuery) {
-      url += `?search=${encodeURIComponent(this.searchQuery)}`;
-    }
-    
-    fetch(url)
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        this.products = data.products || data || [];
+    this.ecommerceService.getProducts(undefined, this.searchQuery).subscribe({
+      next: (res) => {
+        this.products = res.products || [];
         this.loading = false;
-        console.log('Products loaded:', this.products.length);
-      })
-      .catch(err => {
+      },
+      error: (err) => {
         console.error('Error:', err);
         this.error = `Cannot connect to backend: ${err.message}`;
         this.loading = false;
-      });
+      }
+    });
   }
   
   clearSearch() {
     this.searchQuery = '';
-    // Navigate to products without search param
     window.location.href = '/products';
   }
   
