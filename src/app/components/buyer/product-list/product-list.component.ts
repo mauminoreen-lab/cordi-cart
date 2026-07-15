@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';  // Add this
 import { EcommerceService } from '../../../services/ecommerce.service';
 
 export interface Product {
@@ -26,6 +27,15 @@ export interface Product {
     <div class="container">
       <h2>Products</h2>
       
+      <!-- Show search query if searching -->
+      @if (searchQuery) {
+        <div class="search-info">
+          Showing results for: "<strong>{{ searchQuery }}</strong>"
+          <span>({{ products.length }} products found)</span>
+          <button (click)="clearSearch()" class="clear-search-btn">✖ Clear</button>
+        </div>
+      }
+      
       @if (loading) {
         <div class="loading">Loading products...</div>
       }
@@ -49,15 +59,17 @@ export interface Product {
               <p class="price">₱{{ product.price.toLocaleString() }}</p>
               <p class="stock">Stock: {{ product.stock || 0 }}</p>
             </div>
-            <!-- Only show Add to Cart for buyers (not sellers or admins) -->
+            
             @if (!isSeller && !isAdmin && product.stock > 0) {
               <button (click)="addToCart(product._id)" class="add-btn">
                 🛒 Add to Cart
               </button>
             }
+            
             @if (isSeller && product.seller === currentUserId) {
               <div class="seller-badge">Your Product</div>
             }
+            
             @if (product.stock === 0) {
               <div class="out-of-stock">Out of Stock</div>
             }
@@ -67,7 +79,12 @@ export interface Product {
       
       @if (!loading && !error && products.length === 0) {
         <div class="no-products">
-          <p>No products found.</p>
+          @if (searchQuery) {
+            <p>No products found for "<strong>{{ searchQuery }}</strong>"</p>
+            <button (click)="clearSearch()" class="clear-search-btn">Clear Search</button>
+          } @else {
+            <p>No products available.</p>
+          }
         </div>
       }
     </div>
@@ -75,30 +92,121 @@ export interface Product {
   styles: [`
     .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
     h2 { color: #333; margin-bottom: 20px; }
-    .loading, .error, .no-products { text-align: center; padding: 40px; background: white; border-radius: 12px; margin: 20px; }
+    
+    .search-info {
+      padding: 12px 16px;
+      background: #e8f5e9;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      color: #2e7d32;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    
+    .search-info span {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .clear-search-btn {
+      padding: 4px 12px;
+      background: #f44336;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    
+    .clear-search-btn:hover {
+      background: #d32f2f;
+    }
+    
+    .loading, .error, .no-products { 
+      text-align: center; 
+      padding: 40px; 
+      background: white; 
+      border-radius: 12px; 
+      margin: 20px; 
+    }
+    
     .error { color: red; }
-    .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-    .product-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; position: relative; }
+    
+    .products-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+      gap: 20px; 
+    }
+    
+    .product-card { 
+      background: white; 
+      border-radius: 12px; 
+      overflow: hidden; 
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+      transition: transform 0.2s; 
+      position: relative; 
+    }
+    
     .product-card:hover { transform: translateY(-5px); }
+    
     .product-image { height: 200px; overflow: hidden; }
     .product-image img { width: 100%; height: 100%; object-fit: cover; }
+    
     .product-info { padding: 15px; }
     .product-card h3 { margin-bottom: 5px; font-size: 16px; }
     .seller { font-size: 12px; color: #999; margin-bottom: 5px; }
     .price { color: #ee4d2d; font-size: 20px; font-weight: bold; margin-bottom: 5px; }
     .stock { color: #666; font-size: 12px; }
-    .add-btn { width: calc(100% - 30px); margin: 0 15px 15px; padding: 10px; background: #ee4d2d; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    
+    .add-btn { 
+      width: calc(100% - 30px); 
+      margin: 0 15px 15px; 
+      padding: 10px; 
+      background: #ee4d2d; 
+      color: white; 
+      border: none; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      font-weight: bold; 
+    }
+    
     .add-btn:hover { background: #d93c1a; }
-    .seller-badge { position: absolute; top: 10px; right: 10px; background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-    .out-of-stock { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px; }
+    
+    .seller-badge { 
+      position: absolute; 
+      top: 10px; 
+      right: 10px; 
+      background: #ff9800; 
+      color: white; 
+      padding: 4px 8px; 
+      border-radius: 4px; 
+      font-size: 11px; 
+      font-weight: bold; 
+    }
+    
+    .out-of-stock { 
+      position: absolute; 
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      background: rgba(0,0,0,0.7); 
+      color: white; 
+      padding: 5px 10px; 
+      border-radius: 4px; 
+      font-size: 12px; 
+    }
   `]
 })
 export class ProductListComponent implements OnInit {
   private ecommerceService = inject(EcommerceService);
+  private route = inject(ActivatedRoute);  // Add this
   
   products: Product[] = [];
   loading = true;
   error = '';
+  searchQuery = '';  // Add this
   
   get isSeller() {
     return this.ecommerceService.isSeller();
@@ -113,14 +221,23 @@ export class ProductListComponent implements OnInit {
   }
   
   ngOnInit() {
-    this.loadProducts();
+    // Read search query from URL
+    this.route.queryParams.subscribe(params => {
+      this.searchQuery = params['search'] || '';
+      this.loadProducts();
+    });
   }
   
   loadProducts() {
     this.loading = true;
     this.error = '';
     
-    fetch('http://localhost:3000/api/products')
+    let url = 'http://localhost:3000/api/products';
+    if (this.searchQuery) {
+      url += `?search=${encodeURIComponent(this.searchQuery)}`;
+    }
+    
+    fetch(url)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -135,6 +252,12 @@ export class ProductListComponent implements OnInit {
         this.error = `Cannot connect to backend: ${err.message}`;
         this.loading = false;
       });
+  }
+  
+  clearSearch() {
+    this.searchQuery = '';
+    // Navigate to products without search param
+    window.location.href = '/products';
   }
   
   addToCart(productId: string) {
