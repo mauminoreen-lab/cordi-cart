@@ -118,6 +118,7 @@ export class EcommerceService {
   private token = signal<string | null>(null);
   
   constructor() {
+    console.log('🌐 API URL:', this.apiUrl);
     this.loadStoredData();
   }
   
