@@ -16,7 +16,12 @@ const app = express();
 
 // ============= CORS CONFIGURATION =============
 app.use(cors({
-  origin: ['http://localhost:4200', 'http://127.0.0.1:4200'],
+  origin: [
+    'https://cordi-cart.vercel.app',
+    'https://cordi-cart.onrender.com',
+    'http://localhost:4200',
+    'http://127.0.0.1:4200'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -25,7 +30,6 @@ app.use(cors({
 // ✅ Increase payload size limits for large images
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
 // MongoDB connection
