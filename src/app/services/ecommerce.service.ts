@@ -105,7 +105,7 @@ export interface Category {
 })
 export class EcommerceService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/api`;
+  private apiUrl = 'https://cordi-cart.onrender.com/api';
   
   // ============= SIGNALS (State Management) =============
   currentUser = signal<User | null>(null);
